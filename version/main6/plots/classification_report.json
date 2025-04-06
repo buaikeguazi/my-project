@@ -1,0 +1,45 @@
+{
+    "0 - No DR": {
+        "precision": 0.8723958333333334,
+        "recall": 0.9544159544159544,
+        "f1-score": 0.9115646258503401,
+        "support": 351
+    },
+    "1 - Mild": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 68
+    },
+    "2 - Moderate": {
+        "precision": 0.5444126074498568,
+        "recall": 0.892018779342723,
+        "f1-score": 0.6761565836298933,
+        "support": 213
+    },
+    "3 - Severe": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 36
+    },
+    "4 - Proliferative DR": {
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1-score": 0.0,
+        "support": 65
+    },
+    "accuracy": 0.7162346521145976,
+    "macro avg": {
+        "precision": 0.283361688156638,
+        "recall": 0.36928694675173546,
+        "f1-score": 0.3175442418960467,
+        "support": 733
+    },
+    "weighted avg": {
+        "precision": 0.5759492808824277,
+        "recall": 0.7162346521145976,
+        "f1-score": 0.6329884529149205,
+        "support": 733
+    }
+}
