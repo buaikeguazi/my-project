@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Image Classification</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="static\styles.css" />
+  </head>
+  <body>
+    <div class="container">
+      <h1>Image Classification</h1>
+
+      <div class="main-content">
+        <!-- 左侧区域 -->
+        <div class="left-panel">
+          <div class="section">
+            <h3>Label View</h3>
+            <div class="file-upload">
+              <input
+                type="file"
+                id="fileInput"
+                accept="image/*"
+                style="display: none"
+              />
+              <button onclick="document.getElementById('fileInput').click()">
+                Choose file
+              </button>
+              <span id="fileName"></span>
+
+              <script>
+                document
+                  .getElementById("fileInput")
+                  .addEventListener("change", function (e) {
+                    const fileName =
+                      e.target.files[0]?.name || "No file chosen";
+                    document.getElementById("fileName").textContent = fileName;
+                  });
+              </script>
+              <button id="uploadBtn">Update Image</button>
+            </div>
+            <h3></h3>
+            <div class="image-preview" id="imagePreview"></div>
+            <button id="predictBtn">Predict</button>
+          </div>
+        </div>
+
+        <!-- 右侧区域 -->
+        <div class="right-panel">
+          <div class="section">
+            <h3>Prediction Results</h3>
+            <div class="results">
+              <div class="result-item">
+                <span>Prediction:</span>
+                <span id="predId">-</span>
+              </div>
+              <div class="result-item">
+                <span>Confidence:</span>
+                <span id="confidence">-</span>
+              </div>
+              <div class="result-item">
+                <span>Uncertainty:</span>
+                <span id="uncertainty">-</span>
+              </div>
+              <div class="result-item">
+                <span>Image Quality:</span>
+                <span id="imageQuality">-</span>
+              </div>
+              <div class="result-item">
+                <span>name:</span>
+                <span id="groundTruth">-</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h3>probability Chart</h3>
+            <canvas id="probabilityChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部解释区域 -->
+      <div class="explanations">
+        <div class="section">
+          <h3>GradeCAM Explanation</h3>
+          <div id="gradcamExplanation"></div>
+        </div>
+        <div class="section">
+          <h3>Saliency Map Explanation</h3>
+          <div id="saliencyExplanation"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // DOM元素
+      const fileInput = document.getElementById("fileInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const predictBtn = document.getElementById("predictBtn");
+      const imagePreview = document.getElementById("imagePreview");
+      const predId = document.getElementById("predId");
+      const confidence = document.getElementById("confidence");
+      const groundTruth = document.getElementById("groundTruth");
+      const uncertainty = document.getElementById("uncertainty");
+      const imageQuality = document.getElementById("imageQuality");
+      const gradcamExplanation = document.getElementById("gradcamExplanation");
+      const saliencyExplanation = document.getElementById(
+        "saliencyExplanation"
+      );
+      const probabilityChart = document.getElementById("probabilityChart");
+
+      // 类别标签
+      const classLabels = [
+        "No DR",
+        "Mild",
+        "Moderate",
+        "Severe",
+        "Proliferative DR",
+      ];
+      let chart = null;
+      let uploadedFilename = null;
+
+      // 文件选择事件
+      fileInput.addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = function (event) {
+            imagePreview.innerHTML = `<img src="${event.target.result}" alt="Preview">`;
+          };
+          reader.readAsDataURL(file);
+        }
+      });
+
+      // 上传图片
+      uploadBtn.addEventListener("click", async function () {
+        if (!fileInput.files[0]) {
+          alert("Please select an image first");
+          return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        try {
+          const response = await fetch("/upload", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await response.json();
+          uploadedFilename = data.filename;
+          alert("Image uploaded successfully");
+        } catch (error) {
+          alert("Upload failed: " + error.message);
+        }
+      });
+
+      // 预测
+      predictBtn.addEventListener("click", async function () {
+        if (!uploadedFilename) {
+          alert("Please upload an image first");
+          return;
+        }
+
+        try {
+          const response = await fetch("/predict", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ filename: uploadedFilename }),
+          });
+          const data = await response.json();
+
+          // 更新结果
+          predId.textContent = data.prediction;
+          confidence.textContent =
+            (Math.max(...data.probabilities) * 100).toFixed(1) + "%";
+          // 更新结果时格式化数值
+
+          groundTruth.textContent = data.true_label;
+          uncertainty.textContent = data.uncertainty.toFixed(1);
+          imageQuality.textContent = data.image_quality;
+
+          // 更新解释图
+          gradcamExplanation.innerHTML = `<img src="/uploads/${data.gradcam_image}" alt="GradCAM">`;
+          saliencyExplanation.innerHTML = `<img src="/uploads/${data.saliency_image}" alt="Saliency Map">`;
+
+          // 更新图表
+          updateChart(data.probabilities);
+        } catch (error) {
+          alert("Prediction failed: " + error.message);
+        }
+      });
+
+      // 更新图表
+      function updateChart(probabilities) {
+        if (chart) {
+          chart.data.datasets[0].data = probabilities;
+          chart.update();
+        } else {
+          chart = new Chart(probabilityChart, {
+            type: "bar",
+            data: {
+              labels: classLabels,
+              datasets: [
+                {
+                  label: "Probability",
+                  data: probabilities,
+                  backgroundColor: "rgba(54, 162, 235, 0.5)",
+                  borderColor: "rgba(54, 162, 235, 1)",
+                  borderWidth: 1,
+                },
+              ],
+            },
+            options: {
+              scales: {
+                y: {
+                  beginAtZero: true,
+                  max: 1,
+                  ticks: {
+                    callback: function (value) {
+                      return value * 100 + "%";
+                    },
+                  },
+                },
+              },
+            },
+          });
+        }
+      }
+    </script>
+  </body>
+</html>
